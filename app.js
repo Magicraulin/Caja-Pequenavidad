@@ -175,30 +175,21 @@
 
   function renderProfit() {
     const st = statsFor(rows);
-    $('#phVal').textContent = fmt(st.profit);
-    $('#phSub').textContent = st.total ? `Has vendido ${fmt(st.total)} y esos artículos te costaron ${fmt(st.cost)}.` : 'Cuando apuntes ventas verás aquí lo que estás ganando.';
+    document.querySelector('#phVal').textContent = fmt(st.profit);
+    document.querySelector('#pk').innerHTML = `<span>Vendido <b>${fmt(st.total)}</b></span><span>Unidades <b>${st.units}</b></span>`;
     const agg = {};
-    rows.forEach(r => { const a = agg[r.pid] = agg[r.pid] || { name: r.name, q: 0, rev: 0, cost: 0 }; a.q += r.qty; a.rev += r.price * r.qty; a.cost += (Number(r.cost) || 0) * r.qty; });
-    products.forEach(p => { if (!agg[p.id]) agg[p.id] = { name: p.name, q: 0, rev: 0, cost: 0 }; else agg[p.id].name = p.name; });
-    let pending = 0, invested = 0;
-    products.forEach(p => { if (hasStock(p)) { pending += (p.price - (Number(p.cost) || 0)) * Number(p.stock); invested += (Number(p.cost) || 0) * (Number(p.stock) + (agg[p.id] ? agg[p.id].q : 0)); } });
-    $('#pk').innerHTML = `
-      <div class="kpi"><span>Vendido</span><b>${fmt(st.total)}</b></div>
-      <div class="kpi"><span>Invertido</span><b>${fmt(invested)}</b></div>
-      <div class="kpi"><span>Por ganar</span><b style="color:var(--ok)">+${fmt(pending)}</b></div>`;
-    const list = Object.entries(agg).map(([pid, a]) => ({ pid, ...a, profit: a.rev - a.cost, p: products.find(x => x.id === pid) })).filter(r => r.p || r.q);
+    rows.forEach(i => { const a = agg[i.pid] = agg[i.pid] || { name: i.name, q: 0, profit: 0 }; a.q += i.qty; a.profit += (i.price - (Number(i.cost) || 0)) * i.qty; });
+    products.forEach(p => { if (!agg[p.id]) agg[p.id] = { name: p.name, q: 0, profit: 0 }; else agg[p.id].name = p.name; });
+    const list = Object.entries(agg).map(([pid, a]) => ({ pid, ...a })).filter(r => r.q || products.some(p => p.id === r.pid));
     list.sort((x, y) => y.profit - x.profit || x.name.localeCompare(y.name));
     const maxP = Math.max(1, ...list.map(r => r.profit));
-    $('#arts').innerHTML = list.length ? list.map(r => {
-      const unit = r.p ? r.p.price - (Number(r.p.cost) || 0) : (r.q ? r.profit / r.q : 0);
-      const left = r.p && hasStock(r.p) ? Number(r.p.stock) : null;
-      return `<div class="art" style="--c:${colorOf(r.pid)}">
-        <div class="top"><span class="n">${esc(r.name)}</span><span class="p ${r.profit > 0 ? '' : 'zero'}">${r.profit > 0 ? '+' : ''}${fmt(r.profit)}</span></div>
-        <div class="meter"><i style="width:${Math.max(0, r.profit) / maxP * 100}%"></i></div>
-        <div class="facts"><span>Vendidos<b>${r.q}</b></span><span>Ingresos<b>${fmt(r.rev)}</b></span><span>Por unidad<b>${fmt(unit)}</b></span></div>
-        ${left != null ? `<div class="foot">Quedan ${left} · si los vendes, ganas <b>${fmt(unit * left)}</b> más</div>` : ''}
-      </div>`;
-    }).join('') : `<div class="empty"><b>Sin artículos</b>Añade productos para ver su beneficio.</div>`;
+    document.querySelector('#arts').innerHTML = list.length ? list.map(r => `
+      <div class="prow" style="--c:${colorOf(r.pid)}">
+        <span class="dot"></span>
+        <span class="pn">${esc(r.name)}<small>${r.q} ${r.q === 1 ? 'vendido' : 'vendidos'}</small></span>
+        <b class="${r.profit > 0 ? '' : 'zero'}">${fmt(r.profit)}</b>
+        <i style="width:${Math.max(0, r.profit) / maxP * 100}%"></i>
+      </div>`).join('') : `<div class="empty"><b>Sin artículos</b></div>`;
   }
 
   function renderProducts() {
@@ -332,18 +323,32 @@
     delete b.dataset.armed; b.textContent = 'Borrar las ventas de este día'; saveDay(true); };
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refresh(true); });
 
-  // ---- snow ----
+  // ---- fondo navideño: estrellas y arbolitos que caen despacio ----
   (() => {
-    const cv = $('#snow'), ctx = cv.getContext('2d');
-    if (!ctx || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    let W = 0, H = 0, flakes = [];
+    const cv = document.querySelector('#snow'), ctx = cv.getContext('2d');
+    if (!ctx) return;
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const KINDS = ['star', 'tree', 'star', 'dot', 'tree', 'star', 'dot'];
+    let W = 0, H = 0, items = [];
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    const make = (y) => { const k = KINDS[Math.floor(Math.random() * KINDS.length)];
+      return { k, x: rnd(0, W), y: y == null ? rnd(0, H) : y, s: k === 'dot' ? rnd(1, 2) : rnd(5, 10), v: rnd(0.12, 0.35), w: rnd(0, 6.28), rot: rnd(-0.4, 0.4), vr: rnd(-0.003, 0.003), a: k === 'dot' ? rnd(0.2, 0.35) : rnd(0.1, 0.2) }; };
     const size = () => { const r = devicePixelRatio || 1; W = innerWidth; H = innerHeight; cv.width = W * r; cv.height = H * r; ctx.setTransform(r, 0, 0, r, 0, 0);
-      flakes = Array.from({ length: Math.round(Math.min(70, W / 10)) }, () => ({ x: Math.random() * W, y: Math.random() * H, r: Math.random() * 2 + 0.6, s: Math.random() * 0.5 + 0.25, w: Math.random() * Math.PI * 2 })); };
-    size(); addEventListener('resize', size);
-    const tick = () => { ctx.clearRect(0, 0, W, H); ctx.fillStyle = 'rgba(255,255,255,0.55)';
-      for (const f of flakes) { f.y += f.s; f.w += 0.01; f.x += Math.sin(f.w) * 0.3; if (f.y > H + 4) { f.y = -4; f.x = Math.random() * W; } ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2); ctx.fill(); }
-      requestAnimationFrame(tick); };
-    tick();
+      items = Array.from({ length: Math.round(Math.min(32, W / 16)) }, () => make()); };
+    function star(s) { ctx.beginPath(); for (let i = 0; i < 10; i++) { const ang = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? s * 0.42 : s; ctx.lineTo(Math.cos(ang) * rr, Math.sin(ang) * rr); } ctx.closePath(); ctx.fill(); }
+    function tree(s) { ctx.beginPath(); ctx.moveTo(0, -s * 1.2); ctx.lineTo(s * 0.7, -s * 0.2); ctx.lineTo(s * 0.35, -s * 0.2); ctx.lineTo(s * 0.9, s * 0.7); ctx.lineTo(-s * 0.9, s * 0.7); ctx.lineTo(-s * 0.35, -s * 0.2); ctx.lineTo(-s * 0.7, -s * 0.2); ctx.closePath(); ctx.fill();
+      ctx.fillRect(-s * 0.15, s * 0.7, s * 0.3, s * 0.35); }
+    function draw() { ctx.clearRect(0, 0, W, H);
+      for (const it of items) {
+        ctx.save(); ctx.translate(it.x, it.y); ctx.rotate(it.rot);
+        ctx.fillStyle = it.k === 'tree' ? `rgba(90,216,166,${it.a})` : it.k === 'star' ? `rgba(245,196,81,${it.a})` : `rgba(255,255,255,${it.a})`;
+        if (it.k === 'star') star(it.s); else if (it.k === 'tree') tree(it.s); else { ctx.beginPath(); ctx.arc(0, 0, it.s, 0, 6.28); ctx.fill(); }
+        ctx.restore();
+      } }
+    function tick() { for (const it of items) { it.y += it.v; it.w += 0.008; it.x += Math.sin(it.w) * 0.2; it.rot += it.vr; if (it.y > H + 14) Object.assign(it, make(-14)); }
+      draw(); requestAnimationFrame(tick); }
+    size(); addEventListener('resize', () => { size(); if (still) draw(); });
+    still ? draw() : tick();
   })();
 
   // ---- start ----
