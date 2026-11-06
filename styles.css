@@ -212,3 +212,25 @@ nav.tabs.two div{grid-template-columns:repeat(2,1fr)}
 .prow b{font-family:var(--mono);font-size:22px;color:var(--ok)}
 .prow b.zero{color:var(--muted)}
 .prow i{position:absolute;left:0;bottom:0;height:4px;background:var(--c);border-radius:0 2px 2px 0}
+
+/* Beneficio por artículo, desplegable */
+.h3hint{font-family:var(--body);font-size:12px;font-weight:600;color:var(--muted);margin-left:auto}
+.pdet{position:relative;overflow:hidden;background:var(--surface);border:1px solid var(--line);border-radius:18px}
+.pdet[open]{border-color:var(--c)}
+.pdet summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:auto 1fr auto auto;gap:12px;align-items:center;padding:16px;position:relative}
+.pdet summary::-webkit-details-marker{display:none}
+.pdet summary:focus-visible{outline:3px solid var(--gold);outline-offset:-3px;border-radius:18px}
+.pdet .dot{width:14px;height:14px;border-radius:50%;background:var(--c)}
+.pdet .pn{font-family:var(--display);font-weight:600;font-size:18px;min-width:0;line-height:1.15}
+.pdet .pn small{display:block;font-family:var(--body);font-size:13px;font-weight:600;color:var(--muted);margin-top:2px}
+.pdet summary b{font-family:var(--mono);font-size:20px;color:var(--ok);white-space:nowrap}
+.pdet summary b.zero{color:var(--muted)}
+.pdet .chev{width:20px;height:20px;stroke:var(--muted);fill:none;stroke-width:2.4;transition:transform .2s}
+.pdet[open] .chev{transform:rotate(180deg)}
+.pdet summary i{position:absolute;left:0;bottom:0;height:4px;background:var(--c);border-radius:0 2px 2px 0}
+.pdet .pbody{padding:4px 16px 16px 42px;display:flex;flex-direction:column;gap:10px}
+.pdet .facts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:13px;color:var(--muted)}
+.pdet .facts b{display:block;color:var(--fg);font-family:var(--mono);font-size:15px}
+.pdet .foot{font-size:13px;color:var(--muted)}
+.pdet .foot b{color:var(--ok)}
+@media (prefers-reduced-motion:reduce){.pdet .chev{transition:none}}

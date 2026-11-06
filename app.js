@@ -176,20 +176,36 @@
   function renderProfit() {
     const st = statsFor(rows);
     document.querySelector('#phVal').textContent = fmt(st.profit);
-    document.querySelector('#pk').innerHTML = `<span>Vendido <b>${fmt(st.total)}</b></span><span>Unidades <b>${st.units}</b></span>`;
+    document.querySelector('#phSub').textContent = st.total ? `Has vendido ${fmt(st.total)} y esos artículos te costaron ${fmt(st.cost)}.` : 'Cuando apuntes ventas verás aquí lo que estás ganando.';
     const agg = {};
-    rows.forEach(i => { const a = agg[i.pid] = agg[i.pid] || { name: i.name, q: 0, profit: 0 }; a.q += i.qty; a.profit += (i.price - (Number(i.cost) || 0)) * i.qty; });
-    products.forEach(p => { if (!agg[p.id]) agg[p.id] = { name: p.name, q: 0, profit: 0 }; else agg[p.id].name = p.name; });
-    const list = Object.entries(agg).map(([pid, a]) => ({ pid, ...a })).filter(r => r.q || products.some(p => p.id === r.pid));
+    rows.forEach(i => { const a = agg[i.pid] = agg[i.pid] || { name: i.name, q: 0, rev: 0, cost: 0 }; a.q += i.qty; a.rev += i.price * i.qty; a.cost += (Number(i.cost) || 0) * i.qty; });
+    products.forEach(p => { if (!agg[p.id]) agg[p.id] = { name: p.name, q: 0, rev: 0, cost: 0 }; else agg[p.id].name = p.name; });
+    let pending = 0, invested = 0;
+    products.forEach(p => { if (hasStock(p)) { pending += (p.price - (Number(p.cost) || 0)) * Number(p.stock); invested += (Number(p.cost) || 0) * (Number(p.stock) + (agg[p.id] ? agg[p.id].q : 0)); } });
+    document.querySelector('#pk').innerHTML = `
+      <div class="kpi"><span>Vendido</span><b>${fmt(st.total)}</b></div>
+      <div class="kpi"><span>Invertido</span><b>${fmt(invested)}</b></div>
+      <div class="kpi"><span>Por ganar</span><b style="color:var(--ok)">+${fmt(pending)}</b></div>`;
+    const open = new Set([...document.querySelectorAll('#arts details[open]')].map(d => d.dataset.pid));
+    const list = Object.entries(agg).map(([pid, a]) => ({ pid, ...a, profit: a.rev - a.cost, p: products.find(x => x.id === pid) })).filter(r => r.p || r.q);
     list.sort((x, y) => y.profit - x.profit || x.name.localeCompare(y.name));
     const maxP = Math.max(1, ...list.map(r => r.profit));
-    document.querySelector('#arts').innerHTML = list.length ? list.map(r => `
-      <div class="prow" style="--c:${colorOf(r.pid)}">
-        <span class="dot"></span>
-        <span class="pn">${esc(r.name)}<small>${r.q} ${r.q === 1 ? 'vendido' : 'vendidos'}</small></span>
-        <b class="${r.profit > 0 ? '' : 'zero'}">${fmt(r.profit)}</b>
-        <i style="width:${Math.max(0, r.profit) / maxP * 100}%"></i>
-      </div>`).join('') : `<div class="empty"><b>Sin artículos</b></div>`;
+    document.querySelector('#arts').innerHTML = list.length ? list.map(r => {
+      const unit = r.p ? r.p.price - (Number(r.p.cost) || 0) : (r.q ? r.profit / r.q : 0);
+      const left = r.p && hasStock(r.p) ? Number(r.p.stock) : null;
+      return `<details class="pdet" data-pid="${r.pid}" style="--c:${colorOf(r.pid)}" ${open.has(r.pid) ? 'open' : ''}>
+        <summary>
+          <span class="dot"></span>
+          <span class="pn">${esc(r.name)}<small>${r.q} ${r.q === 1 ? 'vendido' : 'vendidos'}</small></span>
+          <b class="${r.profit > 0 ? '' : 'zero'}">${r.profit > 0 ? '+' : ''}${fmt(r.profit)}</b>
+          <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          <i style="width:${Math.max(0, r.profit) / maxP * 100}%"></i>
+        </summary>
+        <div class="pbody">
+          <div class="facts"><span>Vendidos<b>${r.q}</b></span><span>Ingresos<b>${fmt(r.rev)}</b></span><span>Por unidad<b>${fmt(unit)}</b></span></div>
+          ${left != null ? `<div class="foot">Quedan ${left} · si los vendes, ganas <b>${fmt(unit * left)}</b> más</div>` : ''}
+        </div>
+      </details>`; }).join('') : `<div class="empty"><b>Sin artículos</b>Añade productos para ver su beneficio.</div>`;
   }
 
   function renderProducts() {
